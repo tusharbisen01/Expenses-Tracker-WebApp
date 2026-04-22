@@ -19,7 +19,7 @@ services:
     restart: always
 
   mainapp:
-    image: snehcreate/expensetracker_v3
+    image: tusharbisen0108/expensesapp:latest
     container_name: Expensetracker
     environment:
       SPRING_DATASOURCE_USERNAME: root
