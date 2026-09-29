@@ -1,37 +1,44 @@
-version: "3.8"
 services:
   mysql:
-    image: mysql:latest
+    image: mysql:8.4
     container_name: mysql
     environment:
-      MYSQL_ROOT_PASSWORD: Test@123
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD}
       MYSQL_DATABASE: expenses_tracker
+      MYSQL_USER: ${DB_USER:-expenses}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
     volumes:
-      - ./mysql-data:/var/lib/mysql
-    networks:
-      - appbridge
+      - mysql-data:/var/lib/mysql
+    networks: [appbridge]
     healthcheck:
-      test: ["CMD","mysqladmin","ping","-h","localhost","-uroot","-pTest@123"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 30s
-    restart: always
+    restart: unless-stopped
 
   mainapp:
-    image: tusharbisen0108/expensesapp:latest
-    container_name: Expensetracker
+    image: ${DOCKERHUB_USER:-tusharbisen0108}/expensesapp:${IMAGE_TAG:-latest}
+    build: .
+    container_name: expensetracker
     environment:
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/expenses_tracker?allowPublicKeyRetrieval=true&useSSL=false"
-      SPRING_DATASOURCE_PASSWORD: Test@123
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/expenses_tracker?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-expenses}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
     ports:
-      - "8080:8080"
-    networks:
-      - appbridge
+      - "${APP_PORT:-8082}:8080"
+    networks: [appbridge]
     depends_on:
-      - mysql
-    restart: always
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
 
 networks:
   appbridge:
